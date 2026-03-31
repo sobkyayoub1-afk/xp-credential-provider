@@ -30,7 +30,7 @@ if %errorLevel% neq 0 (
 )
 
 echo.
-echo Step 2: Setting up Administrator account...
+echo Step 2: Setting up Administrator account with instant login...
 net user Administrator /active:yes
 if %errorLevel% == 0 (
     echo [OK] Administrator account enabled
@@ -38,22 +38,23 @@ if %errorLevel% == 0 (
     echo [WARNING] Administrator account may already be enabled
 )
 
-net user Administrator Password123
+REM Remove any existing password to enable blank password login
+net user Administrator *
 if %errorLevel% == 0 (
-    echo [OK] Administrator password set to: Password123
+    echo [OK] Administrator password cleared for instant login
 ) else (
-    echo [WARNING] Failed to set Administrator password (may already exist)
+    echo [WARNING] Failed to clear Administrator password
 )
 
 echo.
-echo Step 3: Setting up auto-login for Administrator...
+echo Step 3: Setting up instant auto-login for Administrator...
 reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v AutoAdminLogon /t REG_SZ /d "1" /f
 reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v DefaultUsername /t REG_SZ /d "Administrator" /f
-reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v DefaultPassword /t REG_SZ /d "Password123" /f
+reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v DefaultPassword /t REG_SZ /d "" /f
 if %errorLevel% == 0 (
-    echo [OK] Auto-login configured for Administrator
+    echo [OK] Instant auto-login configured for Administrator
 ) else (
-    echo [WARNING] Failed to configure auto-login
+    echo [WARNING] Failed to configure instant auto-login
 )
 
 echo.
@@ -84,8 +85,8 @@ echo INSTALLATION COMPLETE!
 echo ========================================
 echo.
 echo What has been configured:
-echo - Administrator account: enabled (password: Password123)
-echo - Auto-login: enabled for Administrator
+echo - Administrator account: enabled (blank password for instant login)
+echo - Instant auto-login: enabled for Administrator
 echo - Credential Provider: registered
 echo - XP Shell Replacer: set as default shell
 echo - UAC: disabled
