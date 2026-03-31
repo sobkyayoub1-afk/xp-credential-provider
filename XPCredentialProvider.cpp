@@ -377,13 +377,17 @@ HRESULT XPCredential::GetSerialization(CREDENTIAL_PROVIDER_GET_SERIALIZATION_RES
         KERB_INTERACTIVE_LOGON kil;
         ZeroMemory(&kil, sizeof(kil));
         
-        kil.Identity.Flags = SEC_WINNT_AUTH_IDENTITY_UNICODE;
-        kil.Identity.User.Length = (USHORT)wcslen(_pwzUsername) * sizeof(wchar_t);
-        kil.Identity.User.Buffer = (PWSTR)_pwzUsername;
-        kil.Identity.Domain.Length = (USHORT)wcslen(_pwzDomain) * sizeof(wchar_t);
-        kil.Identity.Domain.Buffer = (PWSTR)_pwzDomain;
-        kil.Identity.Password.Length = (USHORT)wcslen(_pwzPassword) * sizeof(wchar_t);
-        kil.Identity.Password.Buffer = (PWSTR)_pwzPassword;
+        kil.UserName.Length = (USHORT)wcslen(_pwzUsername) * sizeof(wchar_t);
+        kil.UserName.Buffer = (PWSTR)_pwzUsername;
+        kil.UserName.MaximumLength = kil.UserName.Length + sizeof(wchar_t);
+        
+        kil.Password.Length = (USHORT)wcslen(_pwzPassword) * sizeof(wchar_t);
+        kil.Password.Buffer = (PWSTR)_pwzPassword;
+        kil.Password.MaximumLength = kil.Password.Length + sizeof(wchar_t);
+        
+        kil.LogonDomain.Length = (USHORT)wcslen(_pwzDomain) * sizeof(wchar_t);
+        kil.LogonDomain.Buffer = (PWSTR)_pwzDomain;
+        kil.LogonDomain.MaximumLength = kil.LogonDomain.Length + sizeof(wchar_t);
         
         kil.MessageType = KerbInteractiveLogon;
         
