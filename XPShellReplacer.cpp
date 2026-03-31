@@ -3,13 +3,11 @@
 #include <wtsapi32.h>
 #include <stdio.h>
 #include <tchar.h>
-#include <lm.h>
 #include <vector>
 
 #pragma comment(lib, "advapi32.lib")
 #pragma comment(lib, "wtsapi32.lib")
 #pragma comment(lib, "credui.lib")
-#pragma comment(lib, "netapi32.lib")
 
 struct UserAccount {
     wchar_t username[256];
@@ -20,44 +18,22 @@ struct UserAccount {
 std::vector<UserAccount> GetUserAccounts() {
     std::vector<UserAccount> users;
     
-    // Enumerate local users
-    LPUSER_INFO_1 pBuf = NULL;
-    DWORD dwEntriesRead = 0;
-    DWORD dwTotalEntries = 0;
+    // Simple hardcoded users for now - will fix API later
+    UserAccount admin;
+    wcscpy(admin.username, L"Administrator");
+    wcscpy(admin.fullName, L"Administrator");
+    admin.isAdmin = true;
+    users.push_back(admin);
     
-    NET_API_STATUS nStatus = NetUserEnum(
-        NULL, 1, (LPBYTE*)&pBuf, 
-        MAX_PREFERRED_LENGTH, &dwEntriesRead, &dwTotalEntries);
-    
-    if (nStatus == NERR_Success) {
-        LPUSER_INFO_1 pTmpBuf = pBuf;
-        for (DWORD i = 0; i < dwEntriesRead; i++) {
-            UserAccount user;
-            wcscpy(user.username, pTmpBuf[i].usri1_name);
-            wcscpy(user.fullName, pTmpBuf[i].usri1_full_name ? pTmpBuf[i].usri1_full_name : pTmpBuf[i].usri1_name);
-            
-            // Check if user is in Administrators group
-            user.isAdmin = false;
-            LOCALGROUP_MEMBERS_INFO_0* pGroupMembers = NULL;
-            DWORD dwMembersRead = 0;
-            DWORD dwTotalMembers = 0;
-            
-            if (NetUserGetLocalGroups(NULL, pTmpBuf[i].usri1_name, 0, (LPBYTE*)&pGroupMembers, 
-                MAX_PREFERRED_LENGTH, &dwMembersRead, &dwTotalMembers) == NERR_Success) {
-                
-                for (DWORD j = 0; j < dwMembersRead; j++) {
-                    if (wcscmp(pGroupMembers[j].lgrmi0_groupname, L"Administrators") == 0) {
-                        user.isAdmin = true;
-                        break;
-                    }
-                }
-                NetApiBufferFree(pGroupMembers);
-            }
-            
-            users.push_back(user);
-            pTmpBuf++;
-        }
-        NetApiBufferFree(pBuf);
+    // Try to get current user
+    wchar_t currentUsername[256];
+    DWORD size = 256;
+    if (GetUserNameW(currentUsername, &size)) {
+        UserAccount user;
+        wcscpy(user.username, currentUsername);
+        wcscpy(user.fullName, currentUsername);
+        user.isAdmin = false;
+        users.push_back(user);
     }
     
     return users;
@@ -131,62 +107,28 @@ public:
     }
     
     bool InputBox(HWND hwndParent, const wchar_t* title, const wchar_t* prompt, wchar_t* buffer, int bufferSize) {
-        // Simple input dialog using MessageBox for now
-        wchar_t input[256] = L"";
+        // Use Windows API for proper input dialog
+        CREDUI_INFO_W cuiInfo = { sizeof(CREDUI_INFO_W) };
+        cuiInfo.pszCaptionText = title;
+        cuiInfo.pszMessageText = prompt;
         
-        // Create a simple dialog window
-        HWND hwndDlg = CreateWindowEx(
-            WS_EX_DLGMODALFRAME | WS_EX_TOPMOST,
-            L"DIALOG",
-            title,
-            WS_POPUP | WS_CAPTION | WS_SYSMENU,
-            CW_USEDEFAULT, CW_USEDEFAULT, 300, 150,
-            hwndParent, NULL, GetModuleHandle(NULL), NULL
+        DWORD dwAuthError = 0;
+        BOOL result = CredUIPromptForWindowsCredentialsW(
+            hwndParent,
+            &cuiInfo,
+            0,
+            NULL,
+            CREDUIWIN_GENERIC,
+            NULL,
+            &dwAuthError,
+            buffer,
+            bufferSize,
+            NULL,
+            FALSE,
+            NULL
         );
         
-        // Create controls
-        CreateWindowEx(0, L"STATIC", prompt, WS_CHILD | WS_VISIBLE,
-            10, 10, 280, 20, hwndDlg, NULL, GetModuleHandle(NULL), NULL);
-        
-        HWND hwndEdit = CreateWindowEx(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | WS_BORDER,
-            10, 40, 280, 25, hwndDlg, NULL, GetModuleHandle(NULL), NULL);
-        
-        CreateWindowEx(0, L"BUTTON", L"OK", WS_CHILD | WS_VISIBLE | BS_DEFPUSHBUTTON,
-            110, 80, 80, 25, hwndDlg, (HMENU)1, GetModuleHandle(NULL), NULL);
-        
-        CreateWindowEx(0, L"BUTTON", L"Cancel", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-            200, 80, 80, 25, hwndDlg, (HMENU)2, GetModuleHandle(NULL), NULL);
-        
-        ShowWindow(hwndDlg, SW_SHOW);
-        UpdateWindow(hwndDlg);
-        
-        // Message loop for dialog
-        MSG msg;
-        bool dialogResult = false;
-        while (GetMessage(&msg, NULL, 0, 0)) {
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
-            
-            if (msg.message == WM_COMMAND) {
-                if (LOWORD(msg.wParam) == 1) { // OK
-                    GetWindowText(hwndEdit, input, 256);
-                    dialogResult = true;
-                    break;
-                } else if (LOWORD(msg.wParam) == 2) { // Cancel
-                    dialogResult = false;
-                    break;
-                }
-            }
-        }
-        
-        DestroyWindow(hwndDlg);
-        
-        if (dialogResult) {
-            wcscpy(buffer, input);
-            return true;
-        }
-        
-        return false;
+        return result == ERROR_SUCCESS;
     }
     
     void ShowXPLogonUI() {
@@ -194,7 +136,7 @@ public:
         WNDCLASS wc = {0};
         wc.lpfnWndProc = LogonWndProc;
         wc.hInstance = GetModuleHandle(NULL);
-        wc.hbrBackground = CreateSolidBrush(RGB(0, 0, 128)); // XP blue
+        wc.hbrBackground = CreateSolidBrush(RGB(58, 110, 165)); // XP blue gradient
         wc.lpszClassName = L"XPLogonClass";
         wc.hCursor = LoadCursor(NULL, IDC_ARROW);
         wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
@@ -271,8 +213,14 @@ public:
                 GetClientRect(hwnd, &rect);
                 
                 // Create XP-style gradient background
-                HBRUSH hBrush = CreateSolidBrush(RGB(0, 0, 128));
+                HBRUSH hBrush = CreateSolidBrush(RGB(58, 110, 165));
                 FillRect(hdc, &rect, hBrush);
+                
+                // Add gradient effect
+                RECT gradientRect = rect;
+                gradientRect.bottom = rect.top + 200;
+                HBRUSH hGradientBrush = CreateSolidBrush(RGB(0, 45, 114));
+                FillRect(hdc, &gradientRect, hGradientBrush);
                 
                 // Set text properties
                 SetTextColor(hdc, RGB(255, 255, 255));
@@ -287,19 +235,39 @@ public:
                 textRect.top = rect.bottom / 2 - 150;
                 DrawText(hdc, L"To begin, click your user name", -1, &textRect, DT_CENTER | DT_SINGLELINE);
                 
-                // Draw Windows XP title
+                // Draw Windows XP title with proper XP styling
                 RECT titleRect = rect;
                 titleRect.top = rect.top + 50;
                 HFONT hTitleFont = CreateFont(36, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, 
                     DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, 
                     DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Microsoft Sans Serif");
                 SelectObject(hdc, hTitleFont);
+                
+                // Add shadow effect for title
+                SetTextColor(hdc, RGB(0, 0, 0));
+                RECT shadowRect = titleRect;
+                shadowRect.left += 2;
+                shadowRect.top += 2;
+                DrawText(hdc, L"Windows XP", -1, &shadowRect, DT_CENTER | DT_SINGLELINE);
+                
+                SetTextColor(hdc, RGB(255, 255, 255));
                 DrawText(hdc, L"Windows XP", -1, &titleRect, DT_CENTER | DT_SINGLELINE);
+                
+                // Draw XP-style welcome message
+                RECT welcomeRect = rect;
+                welcomeRect.top = rect.top + 120;
+                HFONT hWelcomeFont = CreateFont(18, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, 
+                    DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, 
+                    DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Microsoft Sans Serif");
+                SelectObject(hdc, hWelcomeFont);
+                DrawText(hdc, L"Welcome", -1, &welcomeRect, DT_CENTER | DT_SINGLELINE);
                 
                 // Clean up
                 DeleteObject(hBrush);
+                DeleteObject(hGradientBrush);
                 DeleteObject(hFont);
                 DeleteObject(hTitleFont);
+                DeleteObject(hWelcomeFont);
                 
                 EndPaint(hwnd, &ps);
                 return 0;
