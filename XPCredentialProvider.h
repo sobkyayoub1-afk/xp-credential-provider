@@ -57,7 +57,7 @@ public:
     IFACEMETHODIMP UnAdvise();
     IFACEMETHODIMP SetSelected(BOOL* pbAutoLogon);
     IFACEMETHODIMP SetDeselected();
-    IFACEMETHODIMP GetFieldState(DWORD dwFieldID, CREDENTIAL_PROVIDER_FIELD_STATE* pcpfs);
+    IFACEMETHODIMP GetFieldState(DWORD dwFieldID, CREDENTIAL_PROVIDER_FIELD_STATE* pcpfs, CREDENTIAL_PROVIDER_FIELD_INTERACTIVE_STATE* cpfis);
     IFACEMETHODIMP GetStringValue(DWORD dwFieldID, PWSTR* ppwsz);
     IFACEMETHODIMP GetBitmapValue(DWORD dwFieldID, HBITMAP* phbmp);
     IFACEMETHODIMP GetCheckboxValue(DWORD dwFieldID, BOOL* pfChecked, PWSTR* ppwszLabel);

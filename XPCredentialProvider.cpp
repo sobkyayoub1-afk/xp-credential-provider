@@ -253,9 +253,10 @@ HRESULT XPCredential::SetDeselected()
     return S_OK;
 }
 
-HRESULT XPCredential::GetFieldState(DWORD dwFieldID, CREDENTIAL_PROVIDER_FIELD_STATE* pcpfs)
+HRESULT XPCredential::GetFieldState(DWORD dwFieldID, CREDENTIAL_PROVIDER_FIELD_STATE* pcpfs, CREDENTIAL_PROVIDER_FIELD_INTERACTIVE_STATE* cpfis)
 {
     if (pcpfs) *pcpfs = CPFS_DISPLAY_IN_SELECTED_TILE;
+    if (cpfis) *cpfis = CPFIS_NONE;
     return S_OK;
 }
 
@@ -403,9 +404,9 @@ HRESULT XPCredential::GetSerialization(CREDENTIAL_PROVIDER_GET_SERIALIZATION_RES
         kil.Password.Buffer = (PWSTR)_pwzPassword;
         kil.Password.MaximumLength = kil.Password.Length + sizeof(wchar_t);
         
-        kil.Domain.Length = (USHORT)wcslen(_pwzDomain) * sizeof(wchar_t);
-        kil.Domain.Buffer = (PWSTR)_pwzDomain;
-        kil.Domain.MaximumLength = kil.Domain.Length + sizeof(wchar_t);
+        kil.LogonDomainName.Length = (USHORT)wcslen(_pwzDomain) * sizeof(wchar_t);
+        kil.LogonDomainName.Buffer = (PWSTR)_pwzDomain;
+        kil.LogonDomainName.MaximumLength = kil.LogonDomainName.Length + sizeof(wchar_t);
         
         kil.MessageType = KerbInteractiveLogon;
         
