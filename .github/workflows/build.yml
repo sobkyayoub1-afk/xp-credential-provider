@@ -1,0 +1,64 @@
+name: Build Windows Credential Provider
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      build_config:
+        description: 'Build configuration'
+        required: true
+        default: 'Release'
+        type: choice
+        options:
+        - Release
+        - Debug
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Add MSBuild to PATH
+      uses: microsoft/setup-msbuild@v1.3
+      
+    - name: Setup VSTest path
+      uses: darenm/Setup-VSTest@v1
+      
+    - name: Build Solution
+      run: |
+        msbuild XPCredentialProvider.vcxproj /p:Configuration=${{ github.event.inputs.build_config || 'Release' }} /p:Platform=x64 /p:OutDir=build\
+        
+    - name: Upload Build Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: XPCredentialProvider-${{ github.event.inputs.build_config || 'Release' }}-x64
+        path: |
+          build\XPCredentialProvider.dll
+          build\XPCredentialProvider.pdb
+          install.bat
+          uninstall.bat
+          README.md
+        retention-days: 30
+        
+    - name: Create Release Package
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: |
+        mkdir release
+        copy build\XPCredentialProvider.dll release\
+        copy install.bat release\
+        copy uninstall.bat release\
+        copy README.md release\
+        
+    - name: Upload Release Package
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      uses: actions/upload-artifact@v4
+      with:
+        name: XP-Logon-UI-Release-Package
+        path: release\
+        retention-days: 90
