@@ -8,6 +8,74 @@
 #pragma comment(lib, "wtsapi32.lib")
 #pragma comment(lib, "credui.lib")
 
+bool InputBox(HWND hwndParent, const wchar_t* title, const wchar_t* prompt, wchar_t* buffer, int bufferSize) {
+    // Simple input dialog implementation
+    HINSTANCE hInstance = GetModuleHandle(NULL);
+    
+    // Create dialog template
+    struct InputData {
+        wchar_t buffer[256];
+        bool result;
+    } inputData;
+    
+    wcscpy_s(inputData.buffer, 256, L"");
+    inputData.result = false;
+    
+    // Create a simple input dialog
+    HWND hwndDlg = CreateWindowEx(
+        WS_EX_DLGMODALFRAME | WS_EX_TOPMOST,
+        L"DIALOG",
+        title,
+        WS_POPUP | WS_CAPTION | WS_SYSMENU,
+        CW_USEDEFAULT, CW_USEDEFAULT, 300, 150,
+        hwndParent, NULL, hInstance, NULL
+    );
+    
+    // Create controls
+    CreateWindowEx(0, L"STATIC", prompt, WS_CHILD | WS_VISIBLE,
+        10, 10, 280, 20, hwndDlg, NULL, hInstance, NULL);
+    
+    HWND hwndEdit = CreateWindowEx(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | WS_BORDER,
+        10, 40, 280, 25, hwndDlg, NULL, hInstance, NULL);
+    
+    CreateWindowEx(0, L"BUTTON", L"OK", WS_CHILD | WS_VISIBLE | BS_DEFPUSHBUTTON,
+        110, 80, 80, 25, hwndDlg, (HMENU)1, hInstance, NULL);
+    
+    CreateWindowEx(0, L"BUTTON", L"Cancel", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        200, 80, 80, 25, hwndDlg, (HMENU)2, hInstance, NULL);
+    
+    ShowWindow(hwndDlg, SW_SHOW);
+    UpdateWindow(hwndDlg);
+    
+    // Message loop for dialog
+    MSG msg;
+    bool dialogResult = false;
+    while (GetMessage(&msg, NULL, 0, 0)) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+        
+        if (msg.message == WM_COMMAND) {
+            if (LOWORD(msg.wParam) == 1) { // OK
+                GetWindowText(hwndEdit, inputData.buffer, 256);
+                dialogResult = true;
+                break;
+            } else if (LOWORD(msg.wParam) == 2) { // Cancel
+                dialogResult = false;
+                break;
+            }
+        }
+    }
+    
+    DestroyWindow(hwndDlg);
+    
+    if (dialogResult) {
+        wcscpy_s(buffer, bufferSize, inputData.buffer);
+        return true;
+    }
+    
+    return false;
+}
+
 class XPLogonSystem {
 private:
     bool isAdminLoggedIn;
@@ -81,27 +149,29 @@ public:
         wc.hbrBackground = CreateSolidBrush(RGB(0, 0, 128)); // XP blue
         wc.lpszClassName = L"XPLogonClass";
         wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+        wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
         
         RegisterClass(&wc);
+        
+        // Get screen dimensions
+        int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+        int screenHeight = GetSystemMetrics(SM_CYSCREEN);
         
         hwndLogon = CreateWindowEx(
             WS_EX_TOPMOST,
             L"XPLogonClass",
             L"Windows XP Logon",
             WS_POPUP | WS_VISIBLE,
-            0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN),
+            0, 0, screenWidth, screenHeight,
             NULL, NULL, GetModuleHandle(NULL), this
         );
         
-        // Create input fields
-        CreateWindowEx(0, L"EDIT", L"Username", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL,
-            400, 200, 200, 25, hwndLogon, (HMENU)1, GetModuleHandle(NULL), NULL);
+        // Create user account buttons (XP style)
+        CreateWindowEx(0, L"BUTTON", L"Administrator", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_TEXT,
+            (screenWidth/2) - 100, (screenHeight/2) - 50, 200, 40, hwndLogon, (HMENU)1, GetModuleHandle(NULL), NULL);
         
-        CreateWindowEx(0, L"EDIT", L"Password", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL | ES_PASSWORD,
-            400, 240, 200, 25, hwndLogon, (HMENU)2, GetModuleHandle(NULL), NULL);
-        
-        CreateWindowEx(0, L"BUTTON", L"Log On", WS_CHILD | WS_VISIBLE | BS_DEFPUSHBUTTON,
-            400, 280, 100, 30, hwndLogon, (HMENU)3, GetModuleHandle(NULL), NULL);
+        CreateWindowEx(0, L"BUTTON", L"User", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_TEXT,
+            (screenWidth/2) - 100, (screenHeight/2) + 10, 200, 40, hwndLogon, (HMENU)2, GetModuleHandle(NULL), NULL);
         
         ShowWindow(hwndLogon, SW_SHOW);
         UpdateWindow(hwndLogon);
@@ -112,21 +182,37 @@ public:
             TranslateMessage(&msg);
             DispatchMessage(&msg);
             
-            // Handle logon button click
-            if (msg.message == WM_COMMAND && LOWORD(msg.wParam) == 3) {
-                wchar_t username[256];
-                wchar_t password[256];
-                
-                GetWindowText(GetDlgItem(hwndLogon, 1), username, 256);
-                GetWindowText(GetDlgItem(hwndLogon, 2), password, 256);
-                
-                if (VerifyCredentials(username, password, L".")) {
-                    CreateRDPConnection(username, password, L".");
-                    WaitForRDPSession();
-                    // TODO: Connect to actual session and logout admin
-                    break;
-                } else {
-                    MessageBox(hwndLogon, L"Invalid credentials", L"Error", MB_OK | MB_ICONERROR);
+            // Handle user button clicks
+            if (msg.message == WM_COMMAND) {
+                if (LOWORD(msg.wParam) == 1) {
+                    // Administrator clicked - show password dialog
+                    wchar_t password[256];
+                    if (InputBox(hwndLogon, L"Enter Administrator Password", L"Password:", password, 256)) {
+                        if (VerifyCredentials(L"Administrator", password, L".")) {
+                            CreateRDPConnection(L"Administrator", password, L".");
+                            WaitForRDPSession();
+                            ConnectToConsole(1); // Connect to session 1
+                            break;
+                        } else {
+                            MessageBox(hwndLogon, L"Invalid password", L"Logon Message", MB_OK | MB_ICONERROR);
+                        }
+                    }
+                } else if (LOWORD(msg.wParam) == 2) {
+                    // User clicked - show password dialog
+                    wchar_t username[256];
+                    wchar_t password[256];
+                    if (InputBox(hwndLogon, L"Enter Username", L"Username:", username, 256)) {
+                        if (InputBox(hwndLogon, L"Enter Password", L"Password:", password, 256)) {
+                            if (VerifyCredentials(username, password, L".")) {
+                                CreateRDPConnection(username, password, L".");
+                                WaitForRDPSession();
+                                ConnectToConsole(2); // Connect to session 2
+                                break;
+                            } else {
+                                MessageBox(hwndLogon, L"Invalid credentials", L"Logon Message", MB_OK | MB_ICONERROR);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -144,19 +230,40 @@ public:
                 PAINTSTRUCT ps;
                 HDC hdc = BeginPaint(hwnd, &ps);
                 
-                // Draw XP-style background
+                // Get window dimensions
                 RECT rect;
                 GetClientRect(hwnd, &rect);
-                FillRect(hdc, &rect, CreateSolidBrush(RGB(0, 0, 128)));
                 
-                // Draw welcome text
+                // Create XP-style gradient background
+                HBRUSH hBrush = CreateSolidBrush(RGB(0, 0, 128));
+                FillRect(hdc, &rect, hBrush);
+                
+                // Set text properties
                 SetTextColor(hdc, RGB(255, 255, 255));
                 SetBkMode(hdc, TRANSPARENT);
-                DrawText(hdc, L"Welcome to Windows XP", -1, &rect, DT_CENTER | DT_TOP | DT_SINGLELINE);
+                HFONT hFont = CreateFont(24, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, 
+                    DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, 
+                    DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Microsoft Sans Serif");
+                SelectObject(hdc, hFont);
                 
-                // Draw input field labels
-                TextOut(hdc, 320, 180, L"Username:", 9);
-                TextOut(hdc, 320, 220, L"Password:", 9);
+                // Draw XP welcome text
+                RECT textRect = rect;
+                textRect.top = rect.bottom / 2 - 150;
+                DrawText(hdc, L"To begin, click your user name", -1, &textRect, DT_CENTER | DT_SINGLELINE);
+                
+                // Draw Windows XP title
+                RECT titleRect = rect;
+                titleRect.top = rect.top + 50;
+                HFONT hTitleFont = CreateFont(36, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, 
+                    DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, 
+                    DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Microsoft Sans Serif");
+                SelectObject(hdc, hTitleFont);
+                DrawText(hdc, L"Windows XP", -1, &titleRect, DT_CENTER | DT_SINGLELINE);
+                
+                // Clean up
+                DeleteObject(hBrush);
+                DeleteObject(hFont);
+                DeleteObject(hTitleFont);
                 
                 EndPaint(hwnd, &ps);
                 return 0;

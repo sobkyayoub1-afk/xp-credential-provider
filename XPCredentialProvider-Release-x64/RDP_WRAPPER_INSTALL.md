@@ -1,49 +1,78 @@
-# RDP Wrapper Installation Required
+# Complete XP Logon Setup Guide
 
-## What This Approach Does
+## Quick Setup (Recommended)
 
-Instead of trying to replace the complex Windows LogonUI, this approach:
-
-1. **Replaces the shell** - Sets your XP logon program as the default shell for Administrator account
-2. **Uses RDP wrapper** - Patches Windows to allow multiple simultaneous RDP connections
-3. **Authenticates via RDP** - Uses Windows' built-in authentication through local RDP
-4. **Session switching** - Automatically switches between user sessions
-
-## Step 1: Install RDP Wrapper
-
-1. Download RDP Wrapper from: https://github.com/stascorp/rdpwrap/releases
-2. Download `RDPWrap-v1.6.2.zip` (or latest)
-3. Extract and run `install.bat` as Administrator
-4. Verify installation with `RDPWInst.exe -c`
-
-## Step 2: Build and Install XP Shell Replacer
-
+### Option 1: One-Click Setup
 1. Copy all files to your Windows VM
-2. Run `setup_shell.bat` as Administrator
-3. Log out and log back in as Administrator
+2. Right-click `setup_complete.bat` → "Run as administrator"
+3. Follow the prompts
+4. Restart Windows
 
-## Step 3: Test the XP Logon
+### Option 2: Manual Setup
+1. **Enable Administrator Account:**
+   ```batch
+   net user Administrator /active:yes
+   net user Administrator Password123
+   ```
 
-When you log in as Administrator:
-- XP-style logon screen will appear
-- Enter credentials for any user
-- System will automatically create RDP session and switch to that user
+2. **Set Auto-Login:**
+   ```batch
+   reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v AutoAdminLogon /t REG_SZ /d "1" /f
+   reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v DefaultUsername /t REG_SZ /d "Administrator" /f
+   reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v DefaultPassword /t REG_SZ /d "Password123" /f
+   ```
 
-## How It Works
+3. **Set XP Shell Replacer:**
+   ```batch
+   reg add "HKCU\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v Shell /t REG_SZ /d "C:\Path\To\XPShellReplacer.exe" /f
+   ```
 
-```
-Administrator logs in → XP Shell Replacer starts → User enters credentials → RDP session created → Session switched → Administrator logged out
-```
+## RDP Wrapper Installation
 
-## Benefits
+### Why RDP Wrapper is Needed
+Windows doesn't allow multiple simultaneous RDP connections by default. RDP Wrapper patches this limitation.
 
-✅ **Bypasses LogonUI completely** - No complex credential provider needed
-✅ **Uses native Windows authentication** - Full compatibility
-✅ **Real user switching** - Not just an overlay
-✅ **XP-style UI** - Classic blue logon screen
+### Installation Steps
+1. Download RDP Wrapper: https://github.com/stascorp/rdpwrap/releases
+2. Download `RDPWrap-v1.6.2.zip` (or latest)
+3. Extract to a folder
+4. Run `install.bat` as Administrator
+5. Verify with: `RDPWInst.exe -c`
+
+## What Happens After Setup
+
+1. **Windows starts** → Auto-logs into Administrator
+2. **Administrator session** → XP Shell Replacer launches
+3. **XP Logon UI appears** → Full-screen classic XP interface
+4. **User enters credentials** → RDP session created and switched
+5. **User logged in** → Administrator session automatically logs out
+
+## Features
+
+✅ **Classic XP Blue Background** - Authenticistic Windows XP appearance
+✅ **Full-Screen Overlay** - Covers entire desktop
+✅ **Native Authentication** - Uses Windows' built-in RDP authentication
+✅ **Session Switching** - Proper user session management
+✅ **Auto-Configuration** - One-click setup
 
 ## Troubleshooting
 
-- If RDP wrapper fails: Make sure Windows is up to date
-- If shell replacement fails: Check registry permissions
-- If sessions don't switch: Verify RDP wrapper is working
+### XP Logon Doesn't Appear
+- Check if XPShellReplacer.exe is in the correct path
+- Verify registry entry: `reg query "HKCU\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v Shell`
+- Ensure Administrator account is enabled
+
+### RDP Issues
+- Verify RDP Wrapper is installed: `RDPWInst.exe -c`
+- Check Windows Firewall settings
+- Ensure Remote Desktop is enabled
+
+### Restore Normal Shell
+Run `restore_normal.bat` as Administrator to revert all changes.
+
+## Security Notes
+
+- Administrator password is set to: `Password123`
+- UAC is disabled for seamless experience
+- Auto-login is enabled for Administrator account
+- All changes can be reverted with `restore_normal.bat`
