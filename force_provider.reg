@@ -1,0 +1,12 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\Credential Providers\{12345678-1234-1234-1234-123456789ABC}]
+@="XP Credential Provider"
+"Type"=dword:00000000
+"Assembly"="XPCredentialProvider, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null"
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\Credential Providers]
+@="{12345678-1234-1234-1234-123456789ABC}"
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\LogonUI]
+@="{12345678-1234-1234-1234-123456789ABC}"

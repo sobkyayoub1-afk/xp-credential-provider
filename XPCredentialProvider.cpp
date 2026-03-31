@@ -82,15 +82,50 @@ HRESULT XPCredentialProvider::GetFieldDescriptorCount(DWORD* pdwCount)
     if (pdwCount == NULL)
         return E_POINTER;
     
-    *pdwCount = 0; // We'll handle UI ourselves
+    *pdwCount = 4; // Username, Password, Domain, Submit Button
     return S_OK;
 }
 
 HRESULT XPCredentialProvider::GetFieldDescriptorAt(DWORD dwIndex, CREDENTIAL_PROVIDER_FIELD_DESCRIPTOR** ppcpfd)
 {
-    UNREFERENCED_PARAMETER(dwIndex);
-    UNREFERENCED_PARAMETER(ppcpfd);
-    return E_NOTIMPL;
+    if (ppcpfd == NULL)
+        return E_POINTER;
+    
+    if (dwIndex >= 4)
+        return E_INVALIDARG;
+    
+    // Create field descriptor
+    CREDENTIAL_PROVIDER_FIELD_DESCRIPTOR* cpfd = (CREDENTIAL_PROVIDER_FIELD_DESCRIPTOR*)CoTaskMemAlloc(sizeof(CREDENTIAL_PROVIDER_FIELD_DESCRIPTOR));
+    ZeroMemory(cpfd, sizeof(CREDENTIAL_PROVIDER_FIELD_DESCRIPTOR));
+    
+    static PWSTR fieldLabels[] = {
+        L"Username",
+        L"Password", 
+        L"Domain",
+        L"Log On"
+    };
+    
+    cpfd->dwFieldID = dwIndex;
+    cpfd->pszLabel = (PWSTR)CoTaskMemAlloc((wcslen(fieldLabels[dwIndex]) + 1) * sizeof(wchar_t));
+    StringCchCopy(cpfd->pszLabel, wcslen(fieldLabels[dwIndex]) + 1, fieldLabels[dwIndex]);
+    
+    if (dwIndex == 1) // Password field
+    {
+        cpfd->cpft = CPFT_PASSWORD_TEXT;
+    }
+    else if (dwIndex == 3) // Submit button
+    {
+        cpfd->cpft = CPFT_SUBMIT_BUTTON;
+    }
+    else
+    {
+        cpfd->cpft = CPFT_EDIT_TEXT;
+    }
+    
+    cpfd->guidFieldType = CREDENTIAL_PROVIDER_FIELD_TYPE;
+    *ppcpfd = cpfd;
+    
+    return S_OK;
 }
 
 HRESULT XPCredentialProvider::GetCredentialCount(DWORD* pdwCount, DWORD* pdwDefault, BOOL* pbAutoLogon)
