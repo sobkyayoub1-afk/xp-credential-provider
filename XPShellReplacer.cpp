@@ -33,8 +33,8 @@ std::vector<UserAccount> GetUserAccounts() {
         LPUSER_INFO_1 pTmpBuf = pBuf;
         for (DWORD i = 0; i < dwEntriesRead; i++) {
             UserAccount user;
-            wcscpy_s(user.username, 256, pTmpBuf[i].usri1_name);
-            wcscpy_s(user.fullName, 256, pTmpBuf[i].usri1_full_name ? pTmpBuf[i].usri1_full_name : pTmpBuf[i].usri1_name);
+            wcscpy(user.username, pTmpBuf[i].usri1_name);
+            wcscpy(user.fullName, pTmpBuf[i].usri1_full_name ? pTmpBuf[i].usri1_full_name : pTmpBuf[i].usri1_name);
             
             // Check if user is in Administrators group
             user.isAdmin = false;
@@ -131,32 +131,62 @@ public:
     }
     
     bool InputBox(HWND hwndParent, const wchar_t* title, const wchar_t* prompt, wchar_t* buffer, int bufferSize) {
-        // Use MessageBox with input for simplicity
+        // Simple input dialog using MessageBox for now
         wchar_t input[256] = L"";
-        wcscpy_s(input, 256, L"");
         
-        // Simple approach: use Windows credential UI
-        CREDUI_INFO_W cuiInfo = { sizeof(CREDUI_INFO_W) };
-        cuiInfo.pszCaptionText = title;
-        cuiInfo.pszMessageText = prompt;
-        
-        DWORD dwAuthError = 0;
-        BOOL result = CredUIPromptForWindowsCredentialsW(
-            hwndParent,
-            &cuiInfo,
-            0,
-            NULL,
-            CREDUIWIN_GENERIC | CREDUIWIN_CHECKBOX,
-            NULL,
-            &dwAuthError,
-            buffer,
-            bufferSize,
-            L"",
-            FALSE,
-            NULL
+        // Create a simple dialog window
+        HWND hwndDlg = CreateWindowEx(
+            WS_EX_DLGMODALFRAME | WS_EX_TOPMOST,
+            L"DIALOG",
+            title,
+            WS_POPUP | WS_CAPTION | WS_SYSMENU,
+            CW_USEDEFAULT, CW_USEDEFAULT, 300, 150,
+            hwndParent, NULL, GetModuleHandle(NULL), NULL
         );
         
-        return result == ERROR_SUCCESS;
+        // Create controls
+        CreateWindowEx(0, L"STATIC", prompt, WS_CHILD | WS_VISIBLE,
+            10, 10, 280, 20, hwndDlg, NULL, GetModuleHandle(NULL), NULL);
+        
+        HWND hwndEdit = CreateWindowEx(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | WS_BORDER,
+            10, 40, 280, 25, hwndDlg, NULL, GetModuleHandle(NULL), NULL);
+        
+        CreateWindowEx(0, L"BUTTON", L"OK", WS_CHILD | WS_VISIBLE | BS_DEFPUSHBUTTON,
+            110, 80, 80, 25, hwndDlg, (HMENU)1, GetModuleHandle(NULL), NULL);
+        
+        CreateWindowEx(0, L"BUTTON", L"Cancel", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+            200, 80, 80, 25, hwndDlg, (HMENU)2, GetModuleHandle(NULL), NULL);
+        
+        ShowWindow(hwndDlg, SW_SHOW);
+        UpdateWindow(hwndDlg);
+        
+        // Message loop for dialog
+        MSG msg;
+        bool dialogResult = false;
+        while (GetMessage(&msg, NULL, 0, 0)) {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+            
+            if (msg.message == WM_COMMAND) {
+                if (LOWORD(msg.wParam) == 1) { // OK
+                    GetWindowText(hwndEdit, input, 256);
+                    dialogResult = true;
+                    break;
+                } else if (LOWORD(msg.wParam) == 2) { // Cancel
+                    dialogResult = false;
+                    break;
+                }
+            }
+        }
+        
+        DestroyWindow(hwndDlg);
+        
+        if (dialogResult) {
+            wcscpy(buffer, input);
+            return true;
+        }
+        
+        return false;
     }
     
     void ShowXPLogonUI() {
@@ -290,7 +320,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     SID_IDENTIFIER_AUTHORITY NtAuthority = SECURITY_NT_AUTHORITY;
     PSID adminGroup = NULL;
     
-    if (AllocateAndInitializeSid(&NtAuthority, 2, SECURITY_BUILTIN_DOMAIN_RID,
+    if (AllocateAndInitializeSid(&NtAuthority, SECURITY_NT_AUTHORITY,
                               DOMAIN_ALIAS_RID_ADMINS, 0, 0, 0, &adminGroup)) {
         CheckTokenMembership(NULL, adminGroup, &isAdmin);
         FreeSid(adminGroup);
