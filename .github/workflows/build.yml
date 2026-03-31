@@ -33,6 +33,7 @@ jobs:
     - name: Build Solution
       run: |
         msbuild XPCredentialProvider.vcxproj /p:Configuration=${{ github.event.inputs.build_config || 'Release' }} /p:Platform=x64 /p:OutDir=build\
+        msbuild XPShellReplacer.vcxproj /p:Configuration=${{ github.event.inputs.build_config || 'Release' }} /p:Platform=x64 /p:OutDir=build\
         
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4
@@ -41,8 +42,12 @@ jobs:
         path: |
           build\XPCredentialProvider.dll
           build\XPCredentialProvider.pdb
+          build\XPShellReplacer.exe
+          build\XPShellReplacer.pdb
           install.bat
           uninstall.bat
+          setup_shell.bat
+          RDP_WRAPPER_INSTALL.md
           README.md
         retention-days: 30
         
@@ -51,8 +56,11 @@ jobs:
       run: |
         mkdir release
         copy build\XPCredentialProvider.dll release\
+        copy build\XPShellReplacer.exe release\
         copy install.bat release\
         copy uninstall.bat release\
+        copy setup_shell.bat release\
+        copy RDP_WRAPPER_INSTALL.md release\
         copy README.md release\
         
     - name: Upload Release Package
