@@ -62,8 +62,11 @@ public:
     IFACEMETHODIMP GetBitmapValue(DWORD dwFieldID, HBITMAP* phbmp);
     IFACEMETHODIMP GetCheckboxValue(DWORD dwFieldID, BOOL* pfChecked, PWSTR* ppwszLabel);
     IFACEMETHODIMP GetSubmitButtonValue(DWORD dwFieldID, DWORD* pdwAdjacentTo);
+    IFACEMETHODIMP GetComboBoxValueCount(DWORD dwFieldID, DWORD* pcItems, DWORD* pdwSelectedItem);
+    IFACEMETHODIMP GetComboBoxValueAt(DWORD dwFieldID, DWORD dwItem, PWSTR* ppwszItem);
     IFACEMETHODIMP SetStringValue(DWORD dwFieldID, PCWSTR pwzs);
     IFACEMETHODIMP SetCheckboxValue(DWORD dwFieldID, BOOL fChecked);
+    IFACEMETHODIMP SetComboBoxSelectedValue(DWORD dwFieldID, DWORD dwSelectedItem);
     IFACEMETHODIMP SetBitmapValue(DWORD dwFieldID, HBITMAP hbmp);
     IFACEMETHODIMP CommandLinkClicked(DWORD dwFieldID);
     IFACEMETHODIMP GetSerialization(CREDENTIAL_PROVIDER_GET_SERIALIZATION_RESPONSE* pcpgsr, 

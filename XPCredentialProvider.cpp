@@ -302,6 +302,24 @@ HRESULT XPCredential::SetBitmapValue(DWORD dwFieldID, HBITMAP hbmp)
     return S_OK;
 }
 
+HRESULT XPCredential::GetComboBoxValueCount(DWORD dwFieldID, DWORD* pcItems, DWORD* pdwSelectedItem)
+{
+    if (pcItems) *pcItems = 0;
+    if (pdwSelectedItem) *pdwSelectedItem = 0;
+    return S_OK;
+}
+
+HRESULT XPCredential::GetComboBoxValueAt(DWORD dwFieldID, DWORD dwItem, PWSTR* ppwszItem)
+{
+    if (ppwszItem) *ppwszItem = NULL;
+    return S_OK;
+}
+
+HRESULT XPCredential::SetComboBoxSelectedValue(DWORD dwFieldID, DWORD dwSelectedItem)
+{
+    return S_OK;
+}
+
 HRESULT XPCredential::CommandLinkClicked(DWORD dwFieldID)
 {
     return S_OK;
@@ -385,9 +403,9 @@ HRESULT XPCredential::GetSerialization(CREDENTIAL_PROVIDER_GET_SERIALIZATION_RES
         kil.Password.Buffer = (PWSTR)_pwzPassword;
         kil.Password.MaximumLength = kil.Password.Length + sizeof(wchar_t);
         
-        kil.LogonDomain.Length = (USHORT)wcslen(_pwzDomain) * sizeof(wchar_t);
-        kil.LogonDomain.Buffer = (PWSTR)_pwzDomain;
-        kil.LogonDomain.MaximumLength = kil.LogonDomain.Length + sizeof(wchar_t);
+        kil.Domain.Length = (USHORT)wcslen(_pwzDomain) * sizeof(wchar_t);
+        kil.Domain.Buffer = (PWSTR)_pwzDomain;
+        kil.Domain.MaximumLength = kil.Domain.Length + sizeof(wchar_t);
         
         kil.MessageType = KerbInteractiveLogon;
         
