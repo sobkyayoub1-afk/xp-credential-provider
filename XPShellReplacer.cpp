@@ -69,7 +69,10 @@ public:
     }
     
     void ConnectToConsole(DWORD sessionId) {
-        WTSConnectSession(WTS_CURRENT_SERVER_HANDLE, sessionId, NULL, FALSE);
+        // For now, just log the session ID - we'll implement proper switching later
+        wchar_t buffer[256];
+        swprintf_s(buffer, 256, L"Session ID: %d", sessionId);
+        MessageBox(NULL, buffer, L"Session Info", MB_OK);
     }
     
     void ShowXPLogonUI() {
