@@ -4,10 +4,14 @@
 #include <stdio.h>
 #include <tchar.h>
 #include <vector>
+#include <lm.h>
+
+#define _CRT_SECURE_NO_WARNINGS
 
 #pragma comment(lib, "advapi32.lib")
 #pragma comment(lib, "wtsapi32.lib")
 #pragma comment(lib, "credui.lib")
+#pragma comment(lib, "netapi32.lib")
 
 struct UserAccount {
     wchar_t username[256];
@@ -18,22 +22,46 @@ struct UserAccount {
 std::vector<UserAccount> GetUserAccounts() {
     std::vector<UserAccount> users;
     
-    // Simple hardcoded users for now
-    UserAccount admin;
-    wcscpy(admin.username, L"Administrator");
-    wcscpy(admin.fullName, L"Administrator");
-    admin.isAdmin = true;
-    users.push_back(admin);
+    // Enumerate local users properly
+    LPUSER_INFO_1 pBuf = NULL;
+    DWORD dwEntriesRead = 0;
+    DWORD dwTotalEntries = 0;
     
-    // Try to get current user
-    wchar_t currentUsername[256];
-    DWORD size = 256;
-    if (GetUserNameW(currentUsername, &size)) {
-        UserAccount user;
-        wcscpy(user.username, currentUsername);
-        wcscpy(user.fullName, currentUsername);
-        user.isAdmin = false;
-        users.push_back(user);
+    NET_API_STATUS nStatus = NetUserEnum(
+        NULL, 1, (LPBYTE*)&pBuf, 
+        MAX_PREFERRED_LENGTH, &dwEntriesRead, &dwTotalEntries);
+    
+    if (nStatus == NERR_Success) {
+        LPUSER_INFO_1 pTmpBuf = pBuf;
+        for (DWORD i = 0; i < dwEntriesRead; i++) {
+            UserAccount user;
+            wcscpy(user.username, pTmpBuf[i].usri1_name);
+            wcscpy(user.fullName, pTmpBuf[i].usri1_name); // Use username as display name for now
+            
+            // Check if user is in Administrators group
+            user.isAdmin = false;
+            LOCALGROUP_MEMBERS_INFO_0* pGroupMembers = NULL;
+            DWORD dwMembersRead = 0;
+            DWORD dwTotalMembers = 0;
+            
+            if (NetUserGetLocalGroups(NULL, pTmpBuf[i].usri1_name, 0, (LPBYTE*)&pGroupMembers, 
+                MAX_PREFERRED_LENGTH, &dwMembersRead, &dwTotalMembers) == NERR_Success) {
+                
+                for (DWORD j = 0; j < dwMembersRead; j++) {
+                    if (wcscmp(pGroupMembers[j].lgrmi0_domainname, L"Administrators") == 0) {
+                        user.isAdmin = true;
+                        break;
+                    }
+                }
+                NetApiBufferFree(pGroupMembers);
+            }
+            
+            // Only add enabled users
+            if (!(pTmpBuf[i].usri1_flags & UF_ACCOUNTDISABLE)) {
+                users.push_back(user);
+            }
+        }
+        NetApiBufferFree(pBuf);
     }
     
     return users;
@@ -88,18 +116,20 @@ public:
         WTS_SESSION_INFO* pSessionInfo = NULL;
         DWORD dwCount = 0;
         
-        while (true) {
+        // Wait up to 30 seconds for RDP session
+        for (int i = 0; i < 30; i++) {
             if (WTSEnumerateSessions(WTS_CURRENT_SERVER_HANDLE, 0, 1, &pSessionInfo, &dwCount)) {
-                for (DWORD i = 0; i < dwCount; i++) {
-                    if (pSessionInfo[i].State == WTSActive && pSessionInfo[i].SessionId != WTS_CURRENT_SESSION) {
+                for (DWORD j = 0; j < dwCount; j++) {
+                    if (pSessionInfo[j].State == WTSActive && pSessionInfo[j].SessionId != WTS_CURRENT_SESSION) {
                         WTSFreeMemory(pSessionInfo);
                         return true;
                     }
                 }
                 WTSFreeMemory(pSessionInfo);
             }
-            Sleep(1000); // Check every second
+            Sleep(1000);
         }
+        return false;
     }
     
     void ConnectToConsole(DWORD sessionId) {
@@ -107,62 +137,30 @@ public:
     }
     
     bool InputBox(HWND hwndParent, const wchar_t* title, const wchar_t* prompt, wchar_t* buffer, int bufferSize) {
-        // Simple input dialog using MessageBox for now
-        wchar_t input[256] = L"";
+        // Use Windows API for proper input dialog
+        CREDUI_INFO cuiInfo = { sizeof(CREDUI_INFO) };
+        cuiInfo.pszCaptionText = title;
+        cuiInfo.pszMessageText = prompt;
+        cuiInfo.hbmBanner = NULL;
+        cuiInfo.hbmHeader = NULL;
         
-        // Create a simple dialog window
-        HWND hwndDlg = CreateWindowEx(
-            WS_EX_DLGMODALFRAME | WS_EX_TOPMOST,
-            L"DIALOG",
-            title,
-            WS_POPUP | WS_CAPTION | WS_SYSMENU,
-            CW_USEDEFAULT, CW_USEDEFAULT, 300, 150,
-            hwndParent, NULL, GetModuleHandle(NULL), NULL
+        DWORD dwAuthError = 0;
+        BOOL result = CredUIPromptForWindowsCredentials(
+            hwndParent,
+            &cuiInfo,
+            0,
+            NULL,
+            CREDUIWIN_GENERIC,
+            NULL,
+            &dwAuthError,
+            buffer,
+            bufferSize,
+            NULL,
+            FALSE,
+            NULL
         );
         
-        // Create controls
-        CreateWindowEx(0, L"STATIC", prompt, WS_CHILD | WS_VISIBLE,
-            10, 10, 280, 20, hwndDlg, NULL, GetModuleHandle(NULL), NULL);
-        
-        HWND hwndEdit = CreateWindowEx(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | WS_BORDER,
-            10, 40, 280, 25, hwndDlg, NULL, GetModuleHandle(NULL), NULL);
-        
-        CreateWindowEx(0, L"BUTTON", L"OK", WS_CHILD | WS_VISIBLE | BS_DEFPUSHBUTTON,
-            110, 80, 80, 25, hwndDlg, (HMENU)1, GetModuleHandle(NULL), NULL);
-        
-        CreateWindowEx(0, L"BUTTON", L"Cancel", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-            200, 80, 80, 25, hwndDlg, (HMENU)2, GetModuleHandle(NULL), NULL);
-        
-        ShowWindow(hwndDlg, SW_SHOW);
-        UpdateWindow(hwndDlg);
-        
-        // Message loop for dialog
-        MSG msg;
-        bool dialogResult = false;
-        while (GetMessage(&msg, NULL, 0, 0)) {
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
-            
-            if (msg.message == WM_COMMAND) {
-                if (LOWORD(msg.wParam) == 1) { // OK
-                    GetWindowText(hwndEdit, input, 256);
-                    dialogResult = true;
-                    break;
-                } else if (LOWORD(msg.wParam) == 2) { // Cancel
-                    dialogResult = false;
-                    break;
-                }
-            }
-        }
-        
-        DestroyWindow(hwndDlg);
-        
-        if (dialogResult) {
-            wcscpy(buffer, input);
-            return true;
-        }
-        
-        return false;
+        return result == ERROR_SUCCESS;
     }
     
     void ShowXPLogonUI() {
@@ -170,7 +168,7 @@ public:
         WNDCLASS wc = {0};
         wc.lpfnWndProc = LogonWndProc;
         wc.hInstance = GetModuleHandle(NULL);
-        wc.hbrBackground = CreateSolidBrush(RGB(58, 110, 165)); // XP blue gradient
+        wc.hbrBackground = CreateSolidBrush(RGB(0, 0, 128)); // XP blue
         wc.lpszClassName = L"XPLogonClass";
         wc.hCursor = LoadCursor(NULL, IDC_ARROW);
         wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
@@ -218,9 +216,12 @@ public:
                         userAccounts[userId].fullName, password, 256)) {
                         if (VerifyCredentials(userAccounts[userId].username, password, L".")) {
                             CreateRDPConnection(userAccounts[userId].username, password, L".");
-                            WaitForRDPSession();
-                            ConnectToConsole(userId + 1); // Session IDs start from 1
-                            break;
+                            if (WaitForRDPSession()) {
+                                ConnectToConsole(userId + 1); // Session IDs start from 1
+                                break;
+                            } else {
+                                MessageBox(hwndLogon, L"RDP session failed", L"Logon Error", MB_OK | MB_ICONERROR);
+                            }
                         } else {
                             MessageBox(hwndLogon, L"Invalid password", L"Logon Message", MB_OK | MB_ICONERROR);
                         }
@@ -247,13 +248,13 @@ public:
                 GetClientRect(hwnd, &rect);
                 
                 // Create XP-style gradient background
-                HBRUSH hBrush = CreateSolidBrush(RGB(58, 110, 165));
+                HBRUSH hBrush = CreateSolidBrush(RGB(0, 0, 128));
                 FillRect(hdc, &rect, hBrush);
                 
-                // Add gradient effect
+                // Add gradient effect (darker blue at top)
                 RECT gradientRect = rect;
                 gradientRect.bottom = rect.top + 200;
-                HBRUSH hGradientBrush = CreateSolidBrush(RGB(0, 45, 114));
+                HBRUSH hGradientBrush = CreateSolidBrush(RGB(0, 0, 64));
                 FillRect(hdc, &gradientRect, hGradientBrush);
                 
                 // Set text properties
