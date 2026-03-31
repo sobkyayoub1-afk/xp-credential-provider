@@ -29,14 +29,14 @@ std::vector<UserAccount> GetUserAccounts() {
     
     NET_API_STATUS nStatus = NetUserEnum(
         NULL, 1, (LPBYTE*)&pBuf, 
-        MAX_PREFERRED_LENGTH, &dwEntriesRead, &dwTotalEntries);
+        MAX_PREFERRED_LENGTH, &dwEntriesRead, &dwTotalEntries, NULL);
     
     if (nStatus == NERR_Success) {
         LPUSER_INFO_1 pTmpBuf = pBuf;
         for (DWORD i = 0; i < dwEntriesRead; i++) {
             UserAccount user;
             wcscpy(user.username, pTmpBuf[i].usri1_name);
-            wcscpy(user.fullName, pTmpBuf[i].usri1_name); // Use username as display name for now
+            wcscpy(user.fullName, pTmpBuf[i].usri1_name);
             
             // Check if user is in Administrators group
             user.isAdmin = false;
@@ -45,10 +45,10 @@ std::vector<UserAccount> GetUserAccounts() {
             DWORD dwTotalMembers = 0;
             
             if (NetUserGetLocalGroups(NULL, pTmpBuf[i].usri1_name, 0, (LPBYTE*)&pGroupMembers, 
-                MAX_PREFERRED_LENGTH, &dwMembersRead, &dwTotalMembers) == NERR_Success) {
+                MAX_PREFERRED_LENGTH, &dwMembersRead, &dwTotalMembers, NULL) == NERR_Success) {
                 
                 for (DWORD j = 0; j < dwMembersRead; j++) {
-                    if (wcscmp(pGroupMembers[j].lgrmi0_domainname, L"Administrators") == 0) {
+                    if (wcscmp(pGroupMembers[j].lgrmi0_groupname, L"Administrators") == 0) {
                         user.isAdmin = true;
                         break;
                     }
@@ -329,7 +329,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     PSID adminGroup = NULL;
     
     if (AllocateAndInitializeSid(&NtAuthority, 1,
-                              DOMAIN_ALIAS_RID_ADMINS, 0, 0, 0, &adminGroup)) {
+                              DOMAIN_ALIAS_RID_ADMINS, 0, 0, 0, 0, &adminGroup)) {
         BOOL isAdmin = FALSE;
         CheckTokenMembership(hToken, adminGroup, &isAdmin);
         FreeSid(adminGroup);
