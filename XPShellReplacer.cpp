@@ -69,7 +69,7 @@ public:
     }
     
     void ConnectToConsole(DWORD sessionId) {
-        WTSConnectSession(WTS_CURRENT_SERVER_HANDLE, WTS_CURRENT_SESSION, sessionId, FALSE);
+        WTSConnectSession(WTS_CURRENT_SERVER_HANDLE, sessionId, L"", FALSE);
     }
     
     void ShowXPLogonUI() {
