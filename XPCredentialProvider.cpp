@@ -98,7 +98,7 @@ HRESULT XPCredentialProvider::GetFieldDescriptorAt(DWORD dwIndex, CREDENTIAL_PRO
     CREDENTIAL_PROVIDER_FIELD_DESCRIPTOR* cpfd = (CREDENTIAL_PROVIDER_FIELD_DESCRIPTOR*)CoTaskMemAlloc(sizeof(CREDENTIAL_PROVIDER_FIELD_DESCRIPTOR));
     ZeroMemory(cpfd, sizeof(CREDENTIAL_PROVIDER_FIELD_DESCRIPTOR));
     
-    static PWSTR fieldLabels[] = {
+    static const wchar_t* fieldLabels[] = {
         L"Username",
         L"Password", 
         L"Domain",
@@ -122,7 +122,7 @@ HRESULT XPCredentialProvider::GetFieldDescriptorAt(DWORD dwIndex, CREDENTIAL_PRO
         cpfd->cpft = CPFT_EDIT_TEXT;
     }
     
-    cpfd->guidFieldType = CREDENTIAL_PROVIDER_FIELD_TYPE;
+    cpfd->guidFieldType = GUID_NULL;
     *ppcpfd = cpfd;
     
     return S_OK;
