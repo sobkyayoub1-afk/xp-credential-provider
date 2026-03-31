@@ -94,7 +94,7 @@ public:
     
     void CreateRDPConnection(const wchar_t* username, const wchar_t* password, const wchar_t* domain) {
         wchar_t rdpCmd[512];
-        swprintf_s(rdpCmd, 512, L"mstsc.exe /v:localhost /f /admin /u:\"%s\" /p:\"%s\"", username, password);
+        swprintf(rdpCmd, 512, L"mstsc.exe /v:localhost /f /admin /u:\"%s\" /p:\"%s\"", username, password);
         
         STARTUPINFO si = { sizeof(si) };
         PROCESS_INFORMATION pi;
@@ -316,18 +316,30 @@ public:
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
     // Check if we're running as Administrator
-    BOOL isAdmin = FALSE;
+    HANDLE hToken;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken)) {
+        MessageBox(NULL, L"Failed to get process token", L"Error", MB_ICONERROR);
+        return 1;
+    }
+    
     SID_IDENTIFIER_AUTHORITY NtAuthority = SECURITY_NT_AUTHORITY;
     PSID adminGroup = NULL;
     
     if (AllocateAndInitializeSid(&NtAuthority, SECURITY_NT_AUTHORITY,
                               DOMAIN_ALIAS_RID_ADMINS, 0, 0, 0, &adminGroup)) {
-        CheckTokenMembership(NULL, adminGroup, &isAdmin);
+        BOOL isAdmin = FALSE;
+        CheckTokenMembership(hToken, adminGroup, &isAdmin);
         FreeSid(adminGroup);
-    }
-    
-    if (!isAdmin) {
-        MessageBox(NULL, L"This program must be run as Administrator", L"Error", MB_ICONERROR);
+        CloseHandle(hToken);
+        
+        if (!isAdmin) {
+            MessageBox(NULL, L"This program must be run as Administrator", L"Error", MB_ICONERROR);
+            return 1;
+        }
+    } else {
+        if (adminGroup) FreeSid(adminGroup);
+        CloseHandle(hToken);
+        MessageBox(NULL, L"Failed to initialize security", L"Error", MB_ICONERROR);
         return 1;
     }
     
