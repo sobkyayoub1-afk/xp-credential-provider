@@ -1,5 +1,7 @@
 #include "XPCredentialProvider.h"
 #include "XPLogonUI.h"
+#include <ntsecapi.h>
+#include <wincred.h>
 
 XPCredentialProvider::XPCredentialProvider() :
     _cRef(1),
@@ -62,8 +64,8 @@ HRESULT XPCredentialProvider::SetUsageScenario(CREDENTIAL_PROVIDER_USAGE_SCENARI
 {
     _cpus = cpus;
     
-    // Only support logon and unlock scenarios
-    if (cpus != CPUS_LOGON && cpus != CPUS_UNLOCK)
+    // Only support logon scenario (unlock not supported in this version)
+    if (cpus != CPUS_LOGON)
         return E_NOTIMPL;
     
     return S_OK;
@@ -275,9 +277,9 @@ HRESULT XPCredential::GetBitmapValue(DWORD dwFieldID, HBITMAP* phbmp)
 HRESULT XPCredential::GetCheckboxValue(DWORD dwFieldID, BOOL* pfChecked, PWSTR* ppwszLabel)
 {
     UNREFERENCED_PARAMETER(dwFieldID);
-    UNREFERENCED_PARAMETER(pfChecked);
-    UNREFERENCED_PARAMETER(ppwszLabel);
-    return E_NOTIMPL;
+    if (pfChecked) *pfChecked = _fChecked;
+    if (ppwszLabel) *ppwszLabel = NULL;
+    return S_OK;
 }
 
 HRESULT XPCredential::GetSubmitButtonValue(DWORD dwFieldID, DWORD* pdwAdjacentTo)
@@ -381,22 +383,22 @@ HRESULT XPCredential::GetSerialization(CREDENTIAL_PROVIDER_GET_SERIALIZATION_RES
         pcpcs->ulAuthenticationPackage = 0; // Negotiate
         
         // Create credential structure
-        KERB_INTERACTIVE_UNLOCK_LOGON kiul;
-        ZeroMemory(&kiul, sizeof(kiul));
+        KERB_INTERACTIVE_LOGON kil;
+        ZeroMemory(&kil, sizeof(kil));
         
-        kiul.Logon.Identity.Flags = SEC_WINNT_AUTH_IDENTITY_UNICODE;
-        kiul.Logon.Identity.User.Length = (USHORT)wcslen(_pwzUsername) * sizeof(wchar_t);
-        kiul.Logon.Identity.User.Buffer = _pwzUsername;
-        kiul.Logon.Identity.Domain.Length = (USHORT)wcslen(_pwzDomain) * sizeof(wchar_t);
-        kiul.Logon.Identity.Domain.Buffer = _pwzDomain;
-        kiul.Logon.Identity.Password.Length = (USHORT)wcslen(_pwzPassword) * sizeof(wchar_t);
-        kiul.Logon.Identity.Password.Buffer = _pwzPassword;
+        kil.Logon.Identity.Flags = SEC_WINNT_AUTH_IDENTITY_UNICODE;
+        kil.Logon.Identity.User.Length = (USHORT)wcslen(_pwzUsername) * sizeof(wchar_t);
+        kil.Logon.Identity.User.Buffer = (PWSTR)_pwzUsername;
+        kil.Logon.Identity.Domain.Length = (USHORT)wcslen(_pwzDomain) * sizeof(wchar_t);
+        kil.Logon.Identity.Domain.Buffer = (PWSTR)_pwzDomain;
+        kil.Logon.Identity.Password.Length = (USHORT)wcslen(_pwzPassword) * sizeof(wchar_t);
+        kil.Logon.Identity.Password.Buffer = (PWSTR)_pwzPassword;
         
-        kiul.Logon.MessageType = KerbInteractiveLogon;
+        kil.Logon.MessageType = KerbInteractiveLogon;
         
-        pcpcs->rgbSerialization = (BYTE*)CoTaskMemAlloc(sizeof(kiul));
-        CopyMemory(pcpcs->rgbSerialization, &kiul, sizeof(kiul));
-        pcpcs->cbSerialization = sizeof(kiul);
+        pcpcs->rgbSerialization = (BYTE*)CoTaskMemAlloc(sizeof(kil));
+        CopyMemory(pcpcs->rgbSerialization, &kil, sizeof(kil));
+        pcpcs->cbSerialization = sizeof(kil);
         
         *pcpgsr = CPGSR_RETURN_CREDENTIAL_FINISHED;
     }
