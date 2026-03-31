@@ -255,23 +255,21 @@ HRESULT XPCredential::SetDeselected()
 
 HRESULT XPCredential::GetFieldState(DWORD dwFieldID, CREDENTIAL_PROVIDER_FIELD_STATE* pcpfs)
 {
-    UNREFERENCED_PARAMETER(dwFieldID);
-    UNREFERENCED_PARAMETER(pcpfs);
-    return E_NOTIMPL;
+    if (pcpfs) *pcpfs = CPFS_DISPLAY_IN_SELECTED_TILE;
+    return S_OK;
 }
 
 HRESULT XPCredential::GetStringValue(DWORD dwFieldID, PWSTR* ppwsz)
 {
-    UNREFERENCED_PARAMETER(dwFieldID);
-    UNREFERENCED_PARAMETER(ppwsz);
-    return E_NOTIMPL;
+    if (ppwsz == NULL) return E_POINTER;
+    *ppwsz = NULL;
+    return S_OK;
 }
 
 HRESULT XPCredential::GetBitmapValue(DWORD dwFieldID, HBITMAP* phbmp)
 {
-    UNREFERENCED_PARAMETER(dwFieldID);
-    UNREFERENCED_PARAMETER(phbmp);
-    return E_NOTIMPL;
+    if (phbmp) *phbmp = NULL;
+    return S_OK;
 }
 
 HRESULT XPCredential::GetCheckboxValue(DWORD dwFieldID, BOOL* pfChecked, PWSTR* ppwszLabel)
@@ -284,36 +282,29 @@ HRESULT XPCredential::GetCheckboxValue(DWORD dwFieldID, BOOL* pfChecked, PWSTR* 
 
 HRESULT XPCredential::GetSubmitButtonValue(DWORD dwFieldID, DWORD* pdwAdjacentTo)
 {
-    UNREFERENCED_PARAMETER(dwFieldID);
-    UNREFERENCED_PARAMETER(pdwAdjacentTo);
-    return E_NOTIMPL;
+    if (pdwAdjacentTo) *pdwAdjacentTo = 0;
+    return S_OK;
 }
 
 HRESULT XPCredential::SetStringValue(DWORD dwFieldID, PCWSTR pwzs)
 {
-    UNREFERENCED_PARAMETER(dwFieldID);
-    UNREFERENCED_PARAMETER(pwzs);
-    return E_NOTIMPL;
+    return S_OK;
 }
 
 HRESULT XPCredential::SetCheckboxValue(DWORD dwFieldID, BOOL fChecked)
 {
-    UNREFERENCED_PARAMETER(dwFieldID);
-    UNREFERENCED_PARAMETER(fChecked);
-    return E_NOTIMPL;
+    _fChecked = fChecked;
+    return S_OK;
 }
 
 HRESULT XPCredential::SetBitmapValue(DWORD dwFieldID, HBITMAP hbmp)
 {
-    UNREFERENCED_PARAMETER(dwFieldID);
-    UNREFERENCED_PARAMETER(hbmp);
-    return E_NOTIMPL;
+    return S_OK;
 }
 
 HRESULT XPCredential::CommandLinkClicked(DWORD dwFieldID)
 {
-    UNREFERENCED_PARAMETER(dwFieldID);
-    return E_NOTIMPL;
+    return S_OK;
 }
 
 HRESULT XPCredential::GetSerialization(CREDENTIAL_PROVIDER_GET_SERIALIZATION_RESPONSE* pcpgsr, 
@@ -332,7 +323,7 @@ HRESULT XPCredential::GetSerialization(CREDENTIAL_PROVIDER_GET_SERIALIZATION_RES
     XPLogonUI logonUI;
     if (!logonUI.Create(NULL))
     {
-        *ppwszOptionalStatusText = CoTaskMemAlloc(256 * sizeof(wchar_t));
+        *ppwszOptionalStatusText = (PWSTR)CoTaskMemAlloc(256 * sizeof(wchar_t));
         StringCchCopy(*ppwszOptionalStatusText, 256, L"Failed to create logon UI");
         *pcpsiOptionalStatusIcon = CPSI_ERROR;
         return S_OK;
@@ -386,15 +377,15 @@ HRESULT XPCredential::GetSerialization(CREDENTIAL_PROVIDER_GET_SERIALIZATION_RES
         KERB_INTERACTIVE_LOGON kil;
         ZeroMemory(&kil, sizeof(kil));
         
-        kil.Logon.Identity.Flags = SEC_WINNT_AUTH_IDENTITY_UNICODE;
-        kil.Logon.Identity.User.Length = (USHORT)wcslen(_pwzUsername) * sizeof(wchar_t);
-        kil.Logon.Identity.User.Buffer = (PWSTR)_pwzUsername;
-        kil.Logon.Identity.Domain.Length = (USHORT)wcslen(_pwzDomain) * sizeof(wchar_t);
-        kil.Logon.Identity.Domain.Buffer = (PWSTR)_pwzDomain;
-        kil.Logon.Identity.Password.Length = (USHORT)wcslen(_pwzPassword) * sizeof(wchar_t);
-        kil.Logon.Identity.Password.Buffer = (PWSTR)_pwzPassword;
+        kil.Identity.Flags = SEC_WINNT_AUTH_IDENTITY_UNICODE;
+        kil.Identity.User.Length = (USHORT)wcslen(_pwzUsername) * sizeof(wchar_t);
+        kil.Identity.User.Buffer = (PWSTR)_pwzUsername;
+        kil.Identity.Domain.Length = (USHORT)wcslen(_pwzDomain) * sizeof(wchar_t);
+        kil.Identity.Domain.Buffer = (PWSTR)_pwzDomain;
+        kil.Identity.Password.Length = (USHORT)wcslen(_pwzPassword) * sizeof(wchar_t);
+        kil.Identity.Password.Buffer = (PWSTR)_pwzPassword;
         
-        kil.Logon.MessageType = KerbInteractiveLogon;
+        kil.MessageType = KerbInteractiveLogon;
         
         pcpcs->rgbSerialization = (BYTE*)CoTaskMemAlloc(sizeof(kil));
         CopyMemory(pcpcs->rgbSerialization, &kil, sizeof(kil));
@@ -404,7 +395,7 @@ HRESULT XPCredential::GetSerialization(CREDENTIAL_PROVIDER_GET_SERIALIZATION_RES
     }
     else
     {
-        *ppwszOptionalStatusText = CoTaskMemAlloc(256 * sizeof(wchar_t));
+        *ppwszOptionalStatusText = (PWSTR)CoTaskMemAlloc(256 * sizeof(wchar_t));
         StringCchCopy(*ppwszOptionalStatusText, 256, L"Invalid credentials");
         *pcpsiOptionalStatusIcon = CPSI_ERROR;
     }
